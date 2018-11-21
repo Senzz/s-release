@@ -1,0 +1,38 @@
+#!/usr/bin/env node
+const fs = require('fs');
+const path = require('path');
+const program = require('commander');
+const { execSync } = require('child_process'); 
+const colors = require('colors');
+const moveFile = require('./helper/moveFile');
+const myPackage = require('../package.json');
+
+const cwd = process.cwd();
+const package = require(path.join(cwd, 'package.json'));
+
+program 
+  .version(myPackage.version)
+
+const fileDir = path.join(cwd, '/dist');
+const releaseDir = path.join(cwd, '/release');
+
+// build
+program
+  .command('build <desc>')
+  .action((desc) => {
+    console.log("start build");
+    const startTime = Date.now();
+    execSync("npm run build");
+    console.log("build end, ", `build take ${Date.now() - startTime}ms`.green);
+
+    // 移动文件夹
+    moveFile(fileDir, releaseDir);
+    console.log('move files done');
+
+    // git release
+    execSync('git add .', { cwd: releaseDir });
+    execSync(`git commit -m "${desc}, ${new Date().toLocaleString()}"`, { cwd: releaseDir });
+    execSync(`git push origin master:${package.branch ? package.branch.release : "release"}`, { cwd: releaseDir })
+  });
+
+program.parse(process.argv);
